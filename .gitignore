@@ -1,0 +1,11 @@
+.env
+/tamil_nadu_student_database_6000.csv
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+database/*.db
+database/*.db-*
+database/*.db.backup-*
+uploads/*
+!uploads/.gitkeep

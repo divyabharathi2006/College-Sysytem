@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <h4>College ERP</h4>
+            <nav>
+                <a href="{{ url_for('admin.dashboard') }}" class="active">Dashboard</a>
+                <a href="{{ url_for('admin.students') }}">Student management</a>
+                <a href="{{ url_for('registries.colleges') }}">Affiliated colleges</a>
+                <a href="{{ url_for('academic_admin.academic_dashboard') }}">Academic setup</a>
+                <a href="{{ url_for('admin.security_center') }}">Security Center</a>
+                <a href="{{ url_for('admin.accounts_security') }}">Account and session security</a>
+                <a href="{{ url_for('announcements.announcements_page') }}">Announcements</a>
+                <a href="{{ url_for('auth.account_settings') }}">Account settings</a>
+                <a href="{{ url_for('notifications.notifications_page') }}">Notifications</a>
+                <a href="{{ url_for('notifications.notification_preferences_page') }}">Notification preferences</a>
+                <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-link text-start p-0" type="submit">Logout</button></form>
+            </nav>
+        </aside>
+        <main class="main-content">
+            <div class="topbar">
+                <h3>Admin Dashboard</h3>
+            </div>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} mt-3">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="row g-4 mt-1">
+                <div class="col-md-3"><div class="stat-card"><span>Total Students</span><h3>{{ total_students }}</h3></div></div>
+                <div class="col-md-3"><div class="stat-card"><span>Average Attendance</span><h3>{{ average_attendance }}%</h3></div></div>
+                <div class="col-md-3"><div class="stat-card"><span>Students Above 75%</span><h3>{{ students_above_75 }}</h3></div></div>
+                <div class="col-md-3"><div class="stat-card"><span>Critical Students</span><h3>{{ critical_students }}</h3></div></div>
+            </div>
+
+            <div class="row g-4 mt-2">
+                <div class="col-md-6">
+                    <div class="card p-3">
+                        <h5>Attendance Distribution</h5>
+                        <canvas id="attendanceChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card p-3">
+                        <h5>Department Attendance</h5>
+                        <canvas id="departmentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>Create user accounts</h5>
+                <p class="text-muted">Choose the registration workflow for the kind of account you need. Only a Super Admin can create accounts.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary" href="{{ url_for('admin.students') }}">Create student login</a>
+                    <a class="btn btn-outline-primary" href="{{ url_for('registries.colleges') }}">Create affiliated-college login</a>
+                </div>
+                <p class="small text-muted mt-2 mb-0">Student accounts are created with the student registration form. For a college login, first select or add the affiliated college, then create a named staff login and assign its role on the Affiliated colleges page.</p>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Student registration</h5>
+                    <div><a class="btn btn-outline-primary btn-sm me-2" href="{{ url_for('api.export_attendance') }}">Export attendance CSV</a><a class="btn btn-outline-primary btn-sm me-2" href="{{ url_for('api.export_attendance_file', file_format='xlsx') }}">XLSX</a><a class="btn btn-outline-primary btn-sm" href="{{ url_for('api.export_attendance_file', file_format='pdf') }}">PDF</a></div>
+                </div>
+                <p class="text-muted">Use the verified registration workflow to create university or affiliated-college student accounts and assign their DBU registration number.</p>
+                <a class="btn btn-primary align-self-start" href="{{ url_for('admin.students') }}">Open student registration and management</a>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>Preview attendance CSV import</h5>
+                <p class="text-muted">Uploading validates the file and creates a short-lived preview only; attendance is unchanged until the accepted rows are explicitly committed.</p>
+                <form method="POST" action="{{ url_for('admin.import_csv') }}" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="input-group">
+                        <input type="file" class="form-control" name="file" accept=".csv">
+                        <button class="btn btn-primary" type="submit">Upload</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div><h5 class="mb-1">Student List</h5><p class="text-muted mb-0">Showing {{ students|length }} of {{ student_pagination.total }} matching profiles.</p></div>
+                    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin.students') }}">Open student management</a>
+                </div>
+                <form method="get" action="{{ url_for('admin.dashboard') }}" class="row g-2 mt-2">
+                    <label class="visually-hidden" for="dashboard-student-search">Search students by name, roll number, or phone</label>
+                    <div class="col"><input id="dashboard-student-search" class="form-control" name="student_search" value="{{ student_search }}" placeholder="Search name, roll number, or phone" maxlength="100"></div>
+                    <div class="col-auto"><button class="btn btn-outline-primary" type="submit">Search</button></div>
+                    {% if student_search %}<div class="col-auto"><a class="btn btn-outline-secondary" href="{{ url_for('admin.dashboard') }}">Clear</a></div>{% endif %}
+                </form>
+                <table class="table table-striped mt-3">
+                    <thead>
+                        <tr><th>Registration number</th><th>Roll number</th><th>Name</th><th>Phone</th><th>Department</th><th>Year</th><th>Section</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td>{{ student.register_number }}</td>
+                            <td>{{ student.roll_number or '—' }}</td>
+                            <td>{{ student.name }}</td>
+                            <td>{{ student.phone }}</td>
+                            <td>{{ student.department }}</td>
+                            <td>{{ student.year }}</td>
+                            <td>{{ student.section }}</td>
+                            <td>
+                                <details><summary>Edit</summary>
+                                    <form method="POST" action="{{ url_for('admin.edit_student', student_id=student.id) }}" class="mt-2">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <input type="hidden" name="return_q" value="{{ student_search }}">
+                                        <label class="form-label" for="dashboard-student-id-{{ student.id }}">Login username</label><input id="dashboard-student-id-{{ student.id }}" class="form-control mb-1" name="student_id" value="{{ student.user.username if student.user else student.register_number }}" maxlength="50" required>
+                                        <label class="form-label" for="dashboard-roll-{{ student.id }}">Roll number (duplicates allowed)</label><input id="dashboard-roll-{{ student.id }}" class="form-control mb-1" name="roll_number" value="{{ student.roll_number or '' }}" maxlength="50">
+                                        <input class="form-control mb-1" name="name" value="{{ student.name }}" required>
+                                        <input class="form-control mb-1" name="email" type="email" value="{{ student.email }}" required>
+                                        <input class="form-control mb-1" name="phone" value="{{ student.phone }}" required>
+                                        <input class="form-control mb-1" name="department" value="{{ student.department }}" required>
+                                        <select class="form-select mb-1" name="department_id"><option value="">Keep legacy / unlinked</option>{% for department in departments %}<option value="{{ department.id }}" {% if student.department_id == department.id %}selected{% endif %}>{{ department.code }} — {{ department.name }}</option>{% endfor %}</select>
+                                        <input class="form-control mb-1" name="year" value="{{ student.year }}" required>
+                                        <input class="form-control mb-1" name="section" value="{{ student.section }}" required>
+                                        <input class="form-control mb-1" name="semester" value="{{ student.semester }}" required>
+                                        <button class="btn btn-sm btn-primary">Save changes</button>
+                                    </form>
+                                </details>
+                                <form method="POST" action="{{ url_for('admin.delete_student', student_id=student.id) }}" onsubmit="return confirm('Delete this student and their attendance?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button class="btn btn-sm btn-outline-danger mt-1">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <nav class="d-flex justify-content-between align-items-center" aria-label="Student result pages">
+                    {% if student_pagination.has_prev %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.dashboard', student_search=student_search, student_page=student_pagination.prev_num) }}">Previous students</a>{% else %}<span></span>{% endif %}
+                    <span>Page {{ student_pagination.page }} of {{ student_pagination.pages or 1 }}</span>
+                    {% if student_pagination.has_next %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.dashboard', student_search=student_search, student_page=student_pagination.next_num) }}">Next students</a>{% else %}<span></span>{% endif %}
+                </nav>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>Add Subject</h5>
+                <form method="POST" action="{{ url_for('admin.create_subject') }}" class="row g-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input class="form-control col" name="subject_code" placeholder="Subject code" required>
+                    <input class="form-control col" name="subject_name" placeholder="Subject name" required>
+                    <input class="form-control col" name="department" placeholder="Department" required>
+                    <select class="form-select col" name="department_id"><option value="">Link to department (optional)</option>{% for department in departments %}<option value="{{ department.id }}">{{ department.code }} — {{ department.name }}</option>{% endfor %}</select>
+                    <input class="form-control col" name="semester" placeholder="Semester" required>
+                    <select class="form-select col" name="faculty_id"><option value="">Unassigned faculty</option>{% for faculty in faculty_members %}<option value="{{ faculty.id }}">{{ faculty.name }}</option>{% endfor %}</select>
+                    <button class="btn btn-primary">Create subject</button>
+                </form>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>Create Faculty Account and Profile</h5>
+                <form method="POST" action="{{ url_for('admin.create_faculty') }}" class="row g-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input class="form-control col" name="username" placeholder="Login username" required>
+                    <input class="form-control col" name="password" type="password" placeholder="Initial password" required>
+                    <input class="form-control col" name="employee_id" placeholder="Employee ID" required>
+                    <input class="form-control col" name="name" placeholder="Full name" required>
+                    <input class="form-control col" name="email" type="email" placeholder="Email" required>
+                    <input class="form-control col" name="department" placeholder="Department" required>
+                    <button class="btn btn-primary">Create faculty</button>
+                </form>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>Faculty Profiles</h5>
+                <div class="table-responsive"><table class="table table-striped mt-3">
+                    <thead><tr><th>Employee ID</th><th>Name</th><th>Email</th><th>Department</th><th>Actions</th></tr></thead>
+                    <tbody>{% for faculty in faculty_members %}
+                        <tr><td>{{ faculty.employee_id }}</td><td>{{ faculty.name }}</td><td>{{ faculty.email }}</td><td>{{ faculty.department }}</td><td>
+                            <details><summary>Edit profile</summary><form method="POST" action="{{ url_for('admin.edit_faculty', faculty_id=faculty.id) }}" class="mt-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <input class="form-control mb-1" name="employee_id" value="{{ faculty.employee_id }}" required>
+                                <input class="form-control mb-1" name="name" value="{{ faculty.name }}" required>
+                                <input class="form-control mb-1" name="email" type="email" value="{{ faculty.email }}" required>
+                                <input class="form-control mb-1" name="department" value="{{ faculty.department }}" required>
+                                <select class="form-select mb-1" name="department_id"><option value="">Keep legacy / unlinked</option>{% for department in departments %}<option value="{{ department.id }}" {% if faculty.department_id == department.id %}selected{% endif %}>{{ department.code }} — {{ department.name }}</option>{% endfor %}</select>
+                                <button class="btn btn-sm btn-primary">Save profile</button>
+                            </form></details>
+                            <form method="POST" action="{{ url_for('admin.delete_faculty', faculty_id=faculty.id) }}" onsubmit="return confirm('Delete this faculty account and profile?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/><button class="btn btn-sm btn-outline-danger mt-1">Delete</button>
+                            </form>
+                        </td></tr>
+                    {% endfor %}</tbody>
+                </table></div>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>Subject Management</h5>
+                <div class="table-responsive"><table class="table table-striped mt-3">
+                    <thead><tr><th>Code</th><th>Subject</th><th>Department</th><th>Semester</th><th>Faculty</th><th>Actions</th></tr></thead>
+                    <tbody>{% for subject in subjects %}
+                        <tr><td>{{ subject.subject_code }}</td><td>{{ subject.subject_name }}</td><td>{{ subject.department }}</td><td>{{ subject.semester }}</td><td>{{ subject.faculty.name if subject.faculty else 'Unassigned' }}</td><td>
+                            <details><summary>Edit</summary><form method="POST" action="{{ url_for('admin.edit_subject', subject_id=subject.id) }}" class="mt-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <input class="form-control mb-1" name="subject_code" value="{{ subject.subject_code }}" required>
+                                <input class="form-control mb-1" name="subject_name" value="{{ subject.subject_name }}" required>
+                                <input class="form-control mb-1" name="department" value="{{ subject.department }}" required>
+                                <input class="form-control mb-1" name="semester" value="{{ subject.semester }}" required>
+                                <select class="form-select mb-1" name="faculty_id"><option value="">Unassigned faculty</option>{% for faculty in faculty_members %}<option value="{{ faculty.id }}" {% if subject.faculty_id == faculty.id %}selected{% endif %}>{{ faculty.name }}</option>{% endfor %}</select>
+                                <button class="btn btn-sm btn-primary">Save subject</button>
+                            </form></details>
+                            <form method="POST" action="{{ url_for('admin.delete_subject', subject_id=subject.id) }}" onsubmit="return confirm('Delete this subject and all its attendance records?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/><button class="btn btn-sm btn-outline-danger mt-1">Delete</button>
+                            </form>
+                        </td></tr>
+                    {% endfor %}</tbody>
+                </table></div>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>All User Accounts</h5>
+                <p class="text-muted">Showing {{ users|length }} of {{ users_pagination.total }} accounts.</p>
+                <p class="text-muted">Passwords are never displayed. Use the reset form to set a new password.</p>
+                <div class="table-responsive"><table class="table table-striped mt-3">
+                    <thead><tr><th>Username</th><th>Role</th><th>Account actions</th></tr></thead>
+                    <tbody>{% for user in users %}
+                        <tr><td>{{ user.display_name or user.username }}</td><td>{{ user.role }}</td><td>
+                            {% if user.role in ['AFFILIATED_COLLEGE', 'AFF_COLLEGE_ADMIN', 'AFF_REGISTRAR', 'AFF_ATTEND_OFFICER', 'AFF_ATTENDANCE_OFFICER'] %}
+                            <p class="small text-muted mb-0">Manage this account in the affiliated-college registry.</p>
+                            {% else %}
+                            <details><summary>Edit username / role</summary><form method="POST" action="{{ url_for('admin.edit_user', user_id=user.id) }}" class="row g-2 mt-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <input class="form-control col" name="username" value="{{ user.username }}" required>
+                                <select class="form-select col" name="role"><option value="student" {% if user.role == 'student' %}selected{% endif %}>Student</option><option value="faculty" {% if user.role == 'faculty' %}selected{% endif %}>Faculty</option><option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option></select>
+                                <button class="btn btn-sm btn-primary">Save account</button>
+                            </form></details>
+                            <details><summary>Reset password</summary><form method="POST" action="{{ url_for('admin.reset_user_password', user_id=user.id) }}" class="row g-2 mt-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/><input class="form-control col" name="password" type="password" placeholder="New password" required>
+                                <button class="btn btn-sm btn-warning">Reset password</button>
+                            </form></details>
+                            <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" onsubmit="return confirm('Delete this account and its profile?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/><button class="btn btn-sm btn-outline-danger mt-1">Delete account</button>
+                            </form>
+                            {% endif %}
+                        </td></tr>
+                    {% endfor %}</tbody>
+                </table></div>
+                <nav class="d-flex justify-content-between align-items-center" aria-label="User account pages">
+                    {% if users_pagination.has_prev %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.dashboard', user_page=users_pagination.prev_num) }}">Previous accounts</a>{% else %}<span></span>{% endif %}
+                    <span>Page {{ users_pagination.page }} of {{ users_pagination.pages or 1 }}</span>
+                    {% if users_pagination.has_next %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.dashboard', user_page=users_pagination.next_num) }}">Next accounts</a>{% else %}<span></span>{% endif %}
+                </nav>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>Create Attendance Record</h5>
+                <form method="POST" action="{{ url_for('admin.create_attendance') }}" class="row g-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <select class="form-select col" name="student_id" required><option value="">Select student</option>{% for student in students %}<option value="{{ student.id }}">{{ student.register_number }} — {{ student.name }}</option>{% endfor %}</select>
+                    <select class="form-select col" name="subject_id" required><option value="">Select subject</option>{% for subject in subjects %}<option value="{{ subject.id }}">{{ subject.subject_code }} — {{ subject.subject_name }}</option>{% endfor %}</select>
+                    <input class="form-control col" name="date" type="date" required>
+                    <select class="form-select col" name="session_id"><option value="">Daily / legacy record</option>{% for session in class_sessions %}<option value="{{ session.id }}">{{ session.subject.subject_code }} · {{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][session.weekday] }} · {{ session.starts_at.strftime('%H:%M') }}</option>{% endfor %}</select>
+                    <select class="form-select col" name="status" required><option value="PRESENT">Present</option><option value="ABSENT">Absent</option><option value="LATE">Late</option><option value="EXCUSED">Excused</option><option value="OD">OD (legacy)</option><option value="LEAVE">Leave (legacy)</option></select>
+                    <button class="btn btn-primary">Add attendance</button>
+                </form>
+            </div>
+
+            <div class="card p-3 mt-4">
+                <h5>Attendance Records</h5>
+                <div class="table-responsive"><table class="table table-striped mt-3">
+                    <thead><tr><th>Date</th><th>Student</th><th>Subject</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>{% for record in attendance_records %}
+                        <tr><td>{{ record.date }}</td><td>{{ record.student.name }}</td><td>{{ record.subject.subject_name }}</td><td>{{ record.status }}</td><td>
+                            <details><summary>Edit</summary><form method="POST" action="{{ url_for('admin.edit_attendance', attendance_id=record.id) }}" class="row g-2 mt-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <select class="form-select col" name="student_id" required><option value="{{ record.student.id }}" selected>{{ record.student.register_number }} — {{ record.student.name }}</option>{% for student in students if record.student_id != student.id %}<option value="{{ student.id }}">{{ student.register_number }} — {{ student.name }}</option>{% endfor %}</select>
+                                <select class="form-select col" name="subject_id" required>{% for subject in subjects %}<option value="{{ subject.id }}" {% if record.subject_id == subject.id %}selected{% endif %}>{{ subject.subject_code }} — {{ subject.subject_name }}</option>{% endfor %}</select>
+                                <input class="form-control col" name="date" type="date" value="{{ record.date.isoformat() }}" required>
+                                <select class="form-select col" name="session_id"><option value="">Daily / legacy record</option>{% for session in class_sessions %}<option value="{{ session.id }}" {% if record.session_id == session.id %}selected{% endif %}>{{ session.subject.subject_code }} · {{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][session.weekday] }} · {{ session.starts_at.strftime('%H:%M') }}</option>{% endfor %}</select>
+                                <select class="form-select col" name="status" required><option value="PRESENT" {% if record.status == 'PRESENT' %}selected{% endif %}>Present</option><option value="ABSENT" {% if record.status == 'ABSENT' %}selected{% endif %}>Absent</option><option value="LATE" {% if record.status == 'LATE' %}selected{% endif %}>Late</option><option value="EXCUSED" {% if record.status == 'EXCUSED' %}selected{% endif %}>Excused</option><option value="OD" {% if record.status == 'OD' %}selected{% endif %}>OD (legacy)</option><option value="LEAVE" {% if record.status == 'LEAVE' %}selected{% endif %}>Leave (legacy)</option></select>
+                                <button class="btn btn-sm btn-primary">Save attendance</button>
+                            </form></details>
+                            <form method="POST" action="{{ url_for('admin.delete_attendance', attendance_id=record.id) }}" onsubmit="return confirm('Delete this attendance record?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/><button class="btn btn-sm btn-outline-danger mt-1">Delete</button>
+                            </form>
+                        </td></tr>
+                    {% endfor %}</tbody>
+                </table></div>
+                <div class="d-flex justify-content-between align-items-center">
+                    {% if attendance_pagination.has_prev %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.dashboard', attendance_page=attendance_pagination.prev_num) }}">Previous</a>{% else %}<span></span>{% endif %}
+                    <span>Page {{ attendance_pagination.page }} of {{ attendance_pagination.pages or 1 }}</span>
+                    {% if attendance_pagination.has_next %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.dashboard', attendance_page=attendance_pagination.next_num) }}">Next</a>{% else %}<span></span>{% endif %}
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script>
+        const attendanceCtx = document.getElementById('attendanceChart');
+        new Chart(attendanceCtx, { type: 'doughnut', data: { labels: {{ distribution.keys()|list|tojson }}, datasets:[{ data: {{ distribution.values()|list|tojson }}, backgroundColor:['#2ecc71','#3498db','#f39c12','#e74c3c'] }] } });
+
+        const deptCtx = document.getElementById('departmentChart');
+        new Chart(deptCtx, { type: 'bar', data: { labels: {{ department_stats|map(attribute='department')|list|tojson }}, datasets:[{ label:'Average Attendance', data: {{ department_stats|map(attribute='average')|list|tojson }}, backgroundColor:'#6c63ff' }] }, options:{ responsive:true, scales:{ y:{ beginAtZero:true, max:100 } } } });
+    </script>
+</body>
+</html>

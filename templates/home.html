@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Divyabharathi University — learning, opportunity, and community.">
+    <title>Divyabharathi University | Welcome</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="university-home">
+    <div class="home-loader" id="home-loader" role="status" aria-label="Opening the university welcome page" hidden>
+        <div class="home-loader-content">
+            <div class="home-loader-book" aria-hidden="true">
+                <span class="home-loader-page home-loader-page-one"></span>
+                <span class="home-loader-page home-loader-page-two"></span>
+                <span class="home-loader-page home-loader-page-three"></span>
+                <span class="home-loader-page home-loader-page-four"></span>
+                <span class="home-loader-page home-loader-page-five"></span>
+                <span class="home-loader-page home-loader-page-six"></span>
+                <span class="home-loader-cover"></span>
+                <span class="home-loader-page home-loader-page-back"></span>
+                <span class="home-loader-cover home-loader-cover-turn"></span>
+            </div>
+            <p>Opening a world of learning</p>
+            <button class="home-loader-skip" type="button" id="home-loader-skip">Skip intro</button>
+        </div>
+    </div>
+    <a class="home-skip-link" href="#main-content">Skip to main content</a>
+    <header class="home-header sticky-top">
+        <nav class="navbar navbar-expand-lg home-nav" aria-label="Main navigation">
+            <div class="container">
+                <a class="navbar-brand home-brand" href="#home" aria-label="Divyabharathi University home">
+                    <span class="home-brand-mark" aria-hidden="true">D</span>
+                    <span><strong>DIVYABHARTHI</strong><small>UNIVERSITY</small></span>
+                </a>
+                <button class="navbar-toggler home-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#homeNavigation" aria-controls="homeNavigation" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="homeNavigation">
+                    <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+                        <li class="nav-item"><a class="nav-link" href="#about">About Us</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#courses">Courses Offered</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#faculty">Faculty</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#admissions">Admissions</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#gallery">Photo Gallery</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#contact">Contact Us</a></li>
+                        <li class="nav-item ms-lg-2"><a class="btn btn-home-primary" href="{{ url_for('auth.login') }}">Login</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main id="main-content">
+        <section class="home-hero" id="home" aria-labelledby="welcome-heading">
+            <div class="container home-hero-inner">
+                <div class="home-hero-copy">
+                    <p class="home-eyebrow">LEARN · GROW · LEAD</p>
+                    <h1 id="welcome-heading">Welcome to Divyabharathi University!</h1>
+                    <p class="home-hero-lede">A place to discover your potential, build your future, and be part of a community that believes in learning.</p>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a class="btn btn-home-primary btn-lg" href="{{ url_for('auth.login') }}">Login to your account <span aria-hidden="true">→</span></a>
+                        <a class="btn btn-home-ghost btn-lg" href="#about">Explore the university</a>
+                    </div>
+                    <p class="home-placeholder-note">Official university information is being prepared for this page.</p>
+                </div>
+                <div class="home-hero-art" aria-hidden="true">
+                    <div class="home-art-sun"></div>
+                    <div class="home-art-orbit"></div>
+                    <div class="home-art-book"><span></span><span></span><span></span></div>
+                    <div class="home-art-caption">A future shaped by learning</div>
+                </div>
+            </div>
+            <a class="home-scroll" href="#about" aria-label="Scroll to About Us">↓</a>
+        </section>
+
+        <section class="home-section home-about" id="about" aria-labelledby="about-heading">
+            <div class="container home-two-column">
+                <div>
+                    <p class="home-eyebrow">ABOUT US</p>
+                    <h2 id="about-heading">A university for curious minds.</h2>
+                </div>
+                <div>
+                    <p class="home-section-lede">Divyabharathi University welcomes learners ready to explore ideas, develop their strengths, and contribute to the world around them.</p>
+                    <p class="home-muted">Official history, mission, campus information, and accreditations will be published here after institutional review.</p>
+                    <span class="home-info-badge">University information placeholder</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="home-section home-tint" id="courses" aria-labelledby="courses-heading">
+            <div class="container">
+                <div class="home-section-heading">
+                    <div><p class="home-eyebrow">ACADEMIC PATHWAYS</p><h2 id="courses-heading">Courses Offered</h2></div>
+                    <p class="home-muted">Approved program details will be added here.</p>
+                </div>
+                <div class="row g-4">
+                    {% for label, symbol in [('Official course list', '01'), ('Program details', '02'), ('Eligibility information', '03')] %}
+                    <div class="col-md-4">
+                        <article class="home-pathway-card">
+                            <span class="home-card-index" aria-hidden="true">{{ symbol }}</span>
+                            <h3>{{ label }} — placeholder</h3>
+                            <p>Verified course names, descriptions, and eligibility requirements will be added after institutional confirmation.</p>
+                            <span class="home-info-badge">No offerings published yet</span>
+                        </article>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <section class="home-section" id="faculty" aria-labelledby="faculty-heading">
+            <div class="container home-two-column home-faculty-panel">
+                <div><p class="home-eyebrow">OUR PEOPLE</p><h2 id="faculty-heading">Faculty</h2></div>
+                <div class="home-placeholder-panel">
+                    <div class="home-placeholder-icon" aria-hidden="true">✦</div>
+                    <div><h3>Faculty profiles coming soon</h3><p>Verified faculty names, departments, and profiles will appear here. No individual profiles are shown until approved information is available.</p></div>
+                    <span class="home-info-badge">Faculty information placeholder</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="home-section home-admissions" id="admissions" aria-labelledby="admissions-heading">
+            <div class="container home-admissions-inner">
+                <div><p class="home-eyebrow">YOUR NEXT CHAPTER</p><h2 id="admissions-heading">Admissions</h2><p>Application guidance and important dates will be shared here when officially confirmed.</p></div>
+                <div class="home-admissions-status"><span class="home-status-dot" aria-hidden="true"></span><div><strong>Details are being prepared</strong><span>Check back for verified admission information.</span></div></div>
+                <span class="home-info-badge">Admissions information placeholder</span>
+            </div>
+        </section>
+
+        <section class="home-section" id="gallery" aria-labelledby="gallery-heading">
+            <div class="container">
+                <div class="home-section-heading">
+                    <div><p class="home-eyebrow">A GLIMPSE OF CAMPUS LIFE</p><h2 id="gallery-heading">Photo Gallery</h2></div>
+                    <p class="home-muted">Illustrative stock photos — not photographs of the university.</p>
+                </div>
+                <div class="row g-3 home-gallery" aria-label="Illustrative stock photos of student life">
+                    {% set gallery_photos = [
+                        ('Campus conversations', 'https://images.pexels.com/photos/7683694/pexels-photo-7683694.jpeg?auto=compress&w=1260&h=750&dpr=1', 'College students talking outside a modern university building.', 'RDNE Stock project', 'https://www.pexels.com/@rdne/', 'https://www.pexels.com/photo/college-students-in-a-university-campus-7683694/'),
+                        ('Collaborative study', 'https://images.pexels.com/photos/8199659/pexels-photo-8199659.jpeg?auto=compress&w=1260&h=750&dpr=1', 'Students studying and collaborating at tables inside a university library.', 'Yan Krukau', 'https://www.pexels.com/@yankrukov/', 'https://www.pexels.com/photo/students-studying-inside-the-library-8199659/'),
+                        ('Graduation celebration', 'https://images.pexels.com/photos/29229903/pexels-photo-29229903.jpeg?auto=compress&w=1260&h=750&dpr=1', 'Graduates in gowns celebrating outdoors in front of a building.', 'clmcdk fejcn', 'https://www.pexels.com/@clmcdk-fejcn-2057437867/', 'https://www.pexels.com/photo/graduates-celebrating-with-caps-in-the-air-29229903/')
+                    ] %}
+                    {% for title, image_url, alt_text, photographer, photographer_url, source_url in gallery_photos %}
+                    <div class="col-md-4">
+                        <figure class="home-gallery-card">
+                            <img class="home-gallery-image" src="{{ image_url }}" alt="{{ alt_text }}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+                            <figcaption>
+                                <strong>{{ title }}</strong>
+                                <span>Illustrative stock photo only — not an actual Divyabharathi University campus or event.</span>
+                                <span>Photo by <a href="{{ photographer_url }}" target="_blank" rel="noopener noreferrer">{{ photographer }}</a> · <a href="{{ source_url }}" target="_blank" rel="noopener noreferrer">View source on Pexels</a></span>
+                            </figcaption>
+                        </figure>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="home-gallery-note">These stock photos are illustrative only; the people shown do not endorse Divyabharathi University. Images load from the third-party host images.pexels.com.</p>
+            </div>
+        </section>
+
+        <section class="home-section home-contact" id="contact" aria-labelledby="contact-heading">
+            <div class="container home-contact-inner">
+                <div><p class="home-eyebrow">GET IN TOUCH</p><h2 id="contact-heading">Contact Us</h2><p>Official contact channels will be published here once confirmed by the university.</p></div>
+                <div class="home-contact-placeholder"><span aria-hidden="true">✉</span><div><strong>Contact details coming soon</strong><p>No address, phone number, or email is listed until verified.</p></div></div>
+                <a class="btn btn-home-primary" href="{{ url_for('auth.login') }}">Login to your account</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="home-footer"><div class="container"><a class="home-footer-brand" href="#home">DIVYABHARTHI UNIVERSITY</a><span>Official information will be updated after institutional confirmation.</span><a href="#home">Back to top ↑</a></div></footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/home-loader.js') }}" defer></script>
+</body>
+</html>

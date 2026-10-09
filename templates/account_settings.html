@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account settings</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar"><h4>College ERP</h4><nav>
+        <a href="{{ url_for('announcements.announcements_page') }}">Announcements</a>
+        {% if role.value == 'SUPER_ADMIN' %}<a href="{{ url_for('admin.dashboard') }}">Dashboard</a>
+        {% elif role.value == 'MANAGEMENT' %}<a href="{{ url_for('admin.management_dashboard') }}">Dashboard</a>
+        {% elif role.value == 'HOD' %}<a href="{{ url_for('admin.hod_dashboard') }}">Dashboard</a>
+        {% elif role.value == 'DEPARTMENT_ADMIN' %}<a href="{{ url_for('admin.department_dashboard') }}">Dashboard</a>
+        {% elif role.value == 'FACULTY' %}<a href="{{ url_for('faculty.dashboard') }}">Dashboard</a>
+        {% elif role.value == 'STUDENT' %}<a href="{{ url_for('student.dashboard') }}">Dashboard</a>{% endif %}
+        <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-link text-start p-0" type="submit">Logout</button></form>
+    </nav></aside>
+    <main class="main-content">
+        <div class="topbar"><h1 class="h3">Account settings</h1></div>
+        {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="alert alert-{{ category }} mt-3" role="status">{{ message }}</div>{% endfor %}{% endwith %}
+        {% if profile and editable_fields %}
+        <section class="card p-4 mt-3" aria-labelledby="profile-settings-heading">
+            <h2 id="profile-settings-heading" class="h5">Profile</h2>
+            <form method="post" action="{{ url_for('auth.account_settings') }}" class="row g-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="profile">
+                {% for field in editable_fields %}<div class="col-md-6"><label class="form-label" for="profile-{{ field }}">{{ field|title }}</label><input class="form-control" id="profile-{{ field }}" name="{{ field }}" value="{{ profile|attr(field) }}" maxlength="{{ 30 if field == 'phone' else 120 }}" {% if field == 'email' %}type="email"{% else %}type="text"{% endif %} required></div>{% endfor %}
+                <div class="col-12"><button class="btn btn-primary" type="submit">Save profile</button></div>
+            </form>
+        </section>
+        {% else %}<p class="text-muted mt-3">Your role has no editable profile fields here.</p>{% endif %}
+        <section class="card p-4 mt-4" aria-labelledby="password-settings-heading">
+            <h2 id="password-settings-heading" class="h5">Change password</h2>
+            <p class="text-muted">Use at least 12 characters, no more than 128, and at least three of lowercase, uppercase, number, and symbol. The current session remains signed in; other sessions and outstanding reset links are revoked.</p>
+            <form method="post" action="{{ url_for('auth.account_settings') }}" class="row g-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="password">
+                <div class="col-md-4"><label class="form-label" for="current-password">Current password</label><input class="form-control" id="current-password" name="current_password" type="password" autocomplete="current-password" required></div>
+                <div class="col-md-4"><label class="form-label" for="new-password">New password</label><input class="form-control" id="new-password" name="new_password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></div>
+                <div class="col-md-4"><label class="form-label" for="password-confirmation">Confirm new password</label><input class="form-control" id="password-confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></div>
+                <div class="col-12"><button class="btn btn-warning" type="submit">Change password</button></div>
+            </form>
+        </section>
+    </main>
+</div>
+</body>
+</html>

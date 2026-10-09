@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Student management | Divyabharathi University</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <h4>College ERP</h4>
+            <nav aria-label="Administrator navigation">
+                <a href="{{ url_for('admin.dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin.students') }}" class="active" aria-current="page">Student management</a>
+                <a href="{{ url_for('academic_admin.academic_dashboard') }}">Academic setup</a>
+                <a href="{{ url_for('admin.security_center') }}">Security Center</a>
+                <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-link text-start p-0" type="submit">Logout</button></form>
+            </nav>
+        </aside>
+        <main class="main-content">
+            <div class="topbar"><div><h1 class="h3">Student management</h1><p class="text-muted mb-0">Search and update student profiles. Roll numbers are not unique; all matching profiles are included in the results.</p></div></div>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}<div class="alert alert-{{ category }} mt-3" role="status">{{ message }}</div>{% endfor %}
+            {% endwith %}
+            <div class="mt-3"><a class="btn btn-outline-primary" href="{{ url_for('registries.colleges') }}">Affiliated college registry</a></div>
+            {% if not registry_ready %}
+                <div class="alert alert-warning mt-3" role="alert">
+                    <p>Student and college registry databases are not initialized. Initializing creates missing registry tables only; it does not reset attendance data or existing registry records.</p>
+                    <form method="post" action="{{ url_for('registries.initialize_registries') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="return_to" value="students">
+                        <button class="btn btn-warning" type="submit">Initialize registries to create student records</button>
+                    </form>
+                    <p class="small mb-0 mt-2">You can also run <code>flask --app app init-registry-databases</code> from the server.</p>
+                </div>
+            {% elif not registration_ready %}
+                <div class="alert alert-warning mt-3" role="alert">
+                    Student registration needs the attendance database migration before it can be created.
+                    Run <code>flask --app app db upgrade</code> after taking the institution's normal backup.
+                </div>
+            {% else %}
+            <section class="card p-3 mt-4" aria-labelledby="registration-heading">
+                <h2 class="h5" id="registration-heading">Create a university or affiliated-college student login</h2>
+                <p class="text-muted">New accounts stay disabled until the student verifies their email. The registration number is automatically assigned from the next available number for the selected university or college prefix; the roll number is stored separately. Do not enter or upload government ID numbers or documents.</p>
+                <form method="post" action="{{ url_for('registries.create_student_registration') }}" class="row g-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="col-md-6"><label class="form-label" for="registration-kind">Student category</label><select class="form-select" id="registration-kind" name="student_type" data-university-number="{{ registration_previews.university }}" required><option value="university">University student (DBU300)</option><option value="affiliated">Affiliated college student (college prefix)</option></select></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-college">Affiliated college</label><select class="form-select" id="registration-college" name="college_code"><option value="">Not applicable to university students</option>{% for college in colleges %}<option value="{{ college.college_code }}" data-registration-number="{{ registration_previews.colleges[college.college_code] }}">{{ college.name }} ({{ college.registration_prefix }})</option>{% endfor %}</select></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-number-preview">Registration number (assigned automatically)</label><input class="form-control" id="registration-number-preview" value="{{ registration_previews.university }}" readonly aria-live="polite"><div class="form-text">This is a preview; the server assigns the next available number when you submit.</div></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-roll">Roll number</label><input class="form-control" id="registration-roll" name="roll_number" maxlength="40" pattern="[A-Za-z0-9-]+" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-username">Login username</label><input class="form-control" id="registration-username" name="username" maxlength="80" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-password">Temporary password</label><input class="form-control" id="registration-password" name="password" type="password" autocomplete="new-password" required><div class="form-text">Must meet the app password-strength policy; students must change it after verification.</div></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-name">Full name</label><input class="form-control" id="registration-name" name="name" maxlength="120" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-email">Email</label><input class="form-control" id="registration-email" name="email" type="email" maxlength="120" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-phone">Contact number</label><input class="form-control" id="registration-phone" name="phone" type="tel" maxlength="30" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-gender">Gender</label><select class="form-select" id="registration-gender" name="gender" required><option value="">Choose...</option><option>Female</option><option>Male</option><option>Non-binary</option><option>Other</option><option>Prefer not to say</option></select></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-dob">Date of birth</label><input class="form-control" id="registration-dob" name="date_of_birth" type="date" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-father">Father's name</label><input class="form-control" id="registration-father" name="father_name" maxlength="120" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-mother">Mother's name</label><input class="form-control" id="registration-mother" name="mother_name" maxlength="120" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-community">Community</label><input class="form-control" id="registration-community" name="community" maxlength="80" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-department">Department</label><input class="form-control" id="registration-department" name="department" maxlength="80" required></div>
+                    <div class="col-md-4"><label class="form-label" for="registration-year">Year</label><input class="form-control" id="registration-year" name="year" maxlength="20" required></div>
+                    <div class="col-md-4"><label class="form-label" for="registration-section">Section</label><input class="form-control" id="registration-section" name="section" maxlength="20" required></div>
+                    <div class="col-md-4"><label class="form-label" for="registration-semester">Semester</label><input class="form-control" id="registration-semester" name="semester" maxlength="20" required></div>
+                    <div class="col-12"><label class="form-label" for="registration-address">Address</label><textarea class="form-control" id="registration-address" name="address" maxlength="2000" required></textarea></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-id-type">Identification type checked</label><input class="form-control" id="registration-id-type" name="identification_type" maxlength="80" placeholder="For example, university-approved photo ID" required></div>
+                    <div class="col-md-6"><label class="form-label" for="registration-disability-details">Accessibility information (optional)</label><input class="form-control" id="registration-disability-details" name="disability_details" maxlength="300"></div>
+                    <div class="col-md-6 form-check ms-2"><input class="form-check-input" id="registration-disabled" name="is_differently_abled" type="checkbox"><label class="form-check-label" for="registration-disabled">Student identifies as a person with a disability</label></div>
+                    <div class="col-md-6 form-check ms-2"><input class="form-check-input" id="registration-id-verified" name="identification_verified" type="checkbox"><label class="form-check-label" for="registration-id-verified">I checked the student's identification</label></div>
+                    <div class="col-12"><button class="btn btn-primary" type="submit">Create registration</button></div>
+                </form>
+            </section>
+            {% endif %}
+            <section class="card p-3 mt-4" aria-labelledby="student-search-heading">
+                <h2 class="h5" id="student-search-heading">Find students</h2>
+                <form method="get" action="{{ url_for('admin.students') }}" class="row g-2">
+                    <div class="col-md-8"><label class="form-label" for="student-search">Name, roll number, or mobile / phone</label><input class="form-control" id="student-search" name="q" value="{{ search_text }}" maxlength="100" placeholder="Enter part of a name, roll number, or phone"></div>
+                    <div class="col-auto align-self-end"><button class="btn btn-primary" type="submit">Search</button></div>
+                    {% if search_text %}<div class="col-auto align-self-end"><a class="btn btn-outline-secondary" href="{{ url_for('admin.students') }}">Clear</a></div>{% endif %}
+                </form>
+                <p class="text-muted small mt-3 mb-0">{{ pagination.total }} matching profile(s); showing {{ students|length }} on this page.</p>
+            </section>
+            <section class="card p-3 mt-4" aria-labelledby="student-results-heading">
+                <h2 class="h5" id="student-results-heading">Student records</h2>
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle">
+                        <thead><tr><th scope="col">Registration number</th><th scope="col">Roll number</th><th scope="col">Name</th><th scope="col">Phone</th><th scope="col">Department</th><th scope="col">Year / section</th><th scope="col">Account / verification</th><th scope="col">Actions</th></tr></thead>
+                        <tbody>
+                        {% for student in students %}
+                            <tr>
+                                <td>{{ student.register_number }}</td>
+                                <td>{{ student.roll_number or '—' }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.phone }}</td>
+                                <td>{{ student.department }}</td>
+                                <td>{{ student.year }} / {{ student.section }}</td>
+                                {% set registration = registration_details.get(student.user_id) %}
+                                <td>
+                                    {{ 'Enabled' if student.user and student.user.is_enabled else 'Disabled' }}
+                                    {% if registration %}
+                                        <div class="small">{{ 'Email verified' if registration.email_verified_at else 'Email pending' }} · {{ 'ID checked' if registration.identification_verified else 'ID not checked' }}</div>
+                                        {% if registration.college_code is defined %}<div class="small">College: {{ registration.college_code }}</div>{% endif %}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <details>
+                                        <summary>Edit profile</summary>
+                                        <form method="post" action="{{ url_for('admin.edit_student', student_id=student.id) }}" class="mt-3" aria-label="Edit {{ student.name }} profile">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="return_q" value="{{ search_text }}">
+                                            <label class="form-label" for="student-id-{{ student.id }}">Login username</label><input class="form-control mb-2" id="student-id-{{ student.id }}" name="student_id" value="{{ student.user.username if student.user else student.register_number }}" maxlength="50" required>
+                                            <label class="form-label" for="roll-{{ student.id }}">Roll number (duplicates allowed)</label><input class="form-control mb-2" id="roll-{{ student.id }}" name="roll_number" value="{{ student.roll_number or '' }}" maxlength="50">
+                                            <label class="form-label" for="name-{{ student.id }}">Full name</label><input class="form-control mb-2" id="name-{{ student.id }}" name="name" value="{{ student.name }}" maxlength="120" required>
+                                            <label class="form-label" for="email-{{ student.id }}">Email</label><input class="form-control mb-2" id="email-{{ student.id }}" name="email" type="email" value="{{ student.email }}" maxlength="120" required>
+                                            <label class="form-label" for="phone-{{ student.id }}">Phone</label><input class="form-control mb-2" id="phone-{{ student.id }}" name="phone" value="{{ student.phone }}" maxlength="30" required>
+                                            <label class="form-label" for="department-{{ student.id }}">Department</label><input class="form-control mb-2" id="department-{{ student.id }}" name="department" value="{{ student.department }}" maxlength="80" required>
+                                            <label class="form-label" for="year-{{ student.id }}">Year of study</label><input class="form-control mb-2" id="year-{{ student.id }}" name="year" value="{{ student.year }}" maxlength="20" required>
+                                            <label class="form-label" for="section-{{ student.id }}">Section</label><input class="form-control mb-2" id="section-{{ student.id }}" name="section" value="{{ student.section }}" maxlength="20" required>
+                                            <label class="form-label" for="semester-{{ student.id }}">Semester</label><input class="form-control mb-2" id="semester-{{ student.id }}" name="semester" value="{{ student.semester }}" maxlength="20" required>
+                                            <button class="btn btn-primary" type="submit">Save changes</button>
+                                        </form>
+                                    </details>
+                                    {% if registration %}
+                                    <details class="mt-2">
+                                        <summary>Registration details</summary>
+                                        <dl class="small mt-2">
+                                            <dt>Category</dt><dd>{{ 'Affiliated college' if registration.college_code is defined else 'University' }}</dd>
+                                            {% if registration.college_code is defined %}<dt>College code</dt><dd>{{ registration.college_code }}</dd>{% endif %}
+                                            <dt>Gender / date of birth</dt><dd>{{ registration.gender }} / {{ registration.date_of_birth }}</dd>
+                                            <dt>Father / mother</dt><dd>{{ registration.father_name }} / {{ registration.mother_name }}</dd>
+                                            <dt>Community</dt><dd>{{ registration.community }}</dd>
+                                            <dt>Address</dt><dd>{{ registration.address }}</dd>
+                                            <dt>Accessibility support</dt><dd>{{ 'Yes' if registration.is_differently_abled else 'No' }}{% if registration.disability_details %} · {{ registration.disability_details }}{% endif %}</dd>
+                                            <dt>Identification</dt><dd>{{ registration.identification_type }} · {{ 'checked by administrator' if registration.identification_verified else 'not yet checked' }}</dd>
+                                        </dl>
+                                        <form method="post" action="{{ url_for('registries.edit_student_registration_details', student_id=student.id) }}" class="row g-2">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="col-md-6"><label class="form-label" for="details-gender-{{ student.id }}">Gender</label><input class="form-control" id="details-gender-{{ student.id }}" name="gender" value="{{ registration.gender }}" maxlength="30" required></div>
+                                            <div class="col-md-6"><label class="form-label" for="details-dob-{{ student.id }}">Date of birth</label><input class="form-control" id="details-dob-{{ student.id }}" name="date_of_birth" type="date" value="{{ registration.date_of_birth.isoformat() }}" required></div>
+                                            <div class="col-md-6"><label class="form-label" for="details-father-{{ student.id }}">Father's name</label><input class="form-control" id="details-father-{{ student.id }}" name="father_name" value="{{ registration.father_name }}" maxlength="120" required></div>
+                                            <div class="col-md-6"><label class="form-label" for="details-mother-{{ student.id }}">Mother's name</label><input class="form-control" id="details-mother-{{ student.id }}" name="mother_name" value="{{ registration.mother_name }}" maxlength="120" required></div>
+                                            <div class="col-md-6"><label class="form-label" for="details-community-{{ student.id }}">Community</label><input class="form-control" id="details-community-{{ student.id }}" name="community" value="{{ registration.community }}" maxlength="80" required></div>
+                                            <div class="col-md-6"><label class="form-label" for="details-id-type-{{ student.id }}">Identification type</label><input class="form-control" id="details-id-type-{{ student.id }}" name="identification_type" value="{{ registration.identification_type }}" maxlength="80" required></div>
+                                            <div class="col-12"><label class="form-label" for="details-address-{{ student.id }}">Address</label><textarea class="form-control" id="details-address-{{ student.id }}" name="address" maxlength="2000" required>{{ registration.address }}</textarea></div>
+                                            <div class="col-md-6"><label class="form-label" for="details-disability-{{ student.id }}">Accessibility information</label><input class="form-control" id="details-disability-{{ student.id }}" name="disability_details" value="{{ registration.disability_details or '' }}" maxlength="300"></div>
+                                            <div class="col-md-6 form-check ms-2"><input class="form-check-input" id="details-disabled-{{ student.id }}" name="is_differently_abled" type="checkbox" {% if registration.is_differently_abled %}checked{% endif %}><label class="form-check-label" for="details-disabled-{{ student.id }}">Student identifies as a person with a disability</label></div>
+                                            <div class="col-md-6 form-check ms-2"><input class="form-check-input" id="details-id-verified-{{ student.id }}" name="identification_verified" type="checkbox" {% if registration.identification_verified %}checked{% endif %}><label class="form-check-label" for="details-id-verified-{{ student.id }}">Identification checked by administrator</label></div>
+                                            <div class="col-12"><button class="btn btn-sm btn-primary" type="submit">Save registration details</button></div>
+                                        </form>
+                                    </details>
+                                    {% if not registration.email_verified_at and student.user and not student.user.is_enabled %}
+                                    <form method="post" action="{{ url_for('registries.resend_student_verification', student_id=student.id) }}" class="mt-2">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button class="btn btn-sm btn-outline-primary" type="submit">Resend verification</button>
+                                    </form>
+                                    {% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="8" class="text-center text-muted py-4">No student profiles match this search.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <nav class="d-flex justify-content-between align-items-center" aria-label="Student search result pages">
+                    {% if pagination.has_prev %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.students', q=search_text, page=pagination.prev_num) }}">Previous</a>{% else %}<span></span>{% endif %}
+                    <span>Page {{ pagination.page }} of {{ pagination.pages or 1 }}</span>
+                    {% if pagination.has_next %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.students', q=search_text, page=pagination.next_num) }}">Next</a>{% else %}<span></span>{% endif %}
+                </nav>
+            </section>
+        </main>
+    </div>
+    <script>
+        const registrationKind = document.getElementById('registration-kind');
+        const registrationCollege = document.getElementById('registration-college');
+        const registrationNumberPreview = document.getElementById('registration-number-preview');
+        const updateRegistrationNumberPreview = () => {
+            const affiliated = registrationKind.value === 'affiliated';
+            const selectedCollege = registrationCollege.selectedOptions[0];
+            registrationCollege.required = affiliated;
+            registrationNumberPreview.value = affiliated
+                ? (selectedCollege.dataset.registrationNumber || 'Choose an affiliated college')
+                : registrationKind.dataset.universityNumber;
+        };
+        registrationKind.addEventListener('change', updateRegistrationNumberPreview);
+        registrationCollege.addEventListener('change', updateRegistrationNumberPreview);
+        updateRegistrationNumberPreview();
+    </script>
+</body>
+</html>

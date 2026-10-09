@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Administration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <h4>College ERP</h4>
+        <nav>
+            {% if can_manage_global %}<a href="{{ url_for('admin.dashboard') }}">Admin Dashboard</a>{% endif %}
+            <a href="{{ url_for('academic_admin.academic_dashboard') }}" class="active">Academic Setup</a>
+            <a href="{{ url_for('announcements.announcements_page') }}">Announcements</a><a href="{{ url_for('auth.account_settings') }}">Account settings</a>
+            <a href="{{ url_for('notifications.notifications_page') }}">Notifications</a><a href="{{ url_for('notifications.notification_preferences_page') }}">Notification preferences</a>
+            {% if not can_manage_global %}<a href="{{ url_for('attendance_workflows.correction_requests') }}">Attendance corrections</a><a href="{{ url_for('attendance_workflows.department_leave_requests') }}">Leave requests</a>{% endif %}
+            <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-link text-start p-0" type="submit">Logout</button></form>
+        </nav>
+    </aside>
+    <main class="main-content">
+        <div class="topbar"><h3>Academic Administration</h3><div>{% if not can_manage_global %}<a class="btn btn-outline-primary btn-sm me-2" href="{{ url_for('api.export_attendance_file', file_format='xlsx') }}">Department XLSX</a><a class="btn btn-outline-primary btn-sm" href="{{ url_for('api.export_attendance_file', file_format='pdf') }}">Department PDF</a>{% endif %}</div></div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}<div class="alert alert-{{ category }} mt-3">{{ message }}</div>{% endfor %}
+        {% endwith %}
+        <p class="text-muted">{% if current_department_id %}Department-scoped access: only records linked to your department are available.{% else %}Institution-wide academic configuration.{% endif %}</p>
+
+        {% macro resource_form(resource, item=None) %}
+        <form method="post" action="{{ url_for('academic_admin.mutate_academic_resource', resource=resource, resource_id=item.id) if item else url_for('academic_admin.mutate_academic_resource', resource=resource) }}" class="row g-2 align-items-end">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="{{ 'edit' if item else 'create' }}">
+            {% if resource == 'departments' %}
+                <div class="col-md-3"><label class="form-label">Code</label><input class="form-control" name="code" value="{{ item.code if item else '' }}" required></div>
+                <div class="col-md-5"><label class="form-label">Department name</label><input class="form-control" name="name" value="{{ item.name if item else '' }}" required></div>
+                <div class="col-md-2"><label class="form-label">Status</label><select class="form-select" name="is_active"><option value="true" {% if not item or item.is_active %}selected{% endif %}>Active</option><option value="false" {% if item and not item.is_active %}selected{% endif %}>Inactive</option></select></div>
+            {% elif resource == 'courses' %}
+                {% if can_manage_global %}<div class="col-md-3"><label class="form-label">Department</label><select class="form-select" name="department_id" required>{% for value in departments %}<option value="{{ value.id }}" {% if item and item.department_id == value.id %}selected{% endif %}>{{ value.code }}</option>{% endfor %}</select></div>{% else %}<input type="hidden" name="department_id" value="{{ current_department_id }}">{% endif %}
+                <div class="col-md-3"><label class="form-label">Course code</label><input class="form-control" name="code" value="{{ item.code if item else '' }}" required></div><div class="col-md-4"><label class="form-label">Course name</label><input class="form-control" name="name" value="{{ item.name if item else '' }}" required></div>
+            {% elif resource == 'years' %}
+                <div class="col-md-4"><label class="form-label">Academic year label</label><input class="form-control" name="label" value="{{ item.label if item else '' }}" placeholder="2026-2027" required></div><div class="col-md-3"><label class="form-label">Starts</label><input class="form-control" type="date" name="starts_on" value="{{ item.starts_on.isoformat() if item else '' }}" required></div><div class="col-md-3"><label class="form-label">Ends</label><input class="form-control" type="date" name="ends_on" value="{{ item.ends_on.isoformat() if item else '' }}" required></div>
+            {% elif resource == 'semesters' %}
+                <div class="col-md-3"><label class="form-label">Academic year</label><select class="form-select" name="academic_year_id" required>{% for value in academic_years %}<option value="{{ value.id }}" {% if item and item.academic_year_id == value.id %}selected{% endif %}>{{ value.label }}</option>{% endfor %}</select></div><div class="col-md-2"><label class="form-label">Semester #</label><input class="form-control" type="number" min="1" name="number" value="{{ item.number if item else '' }}" required></div><div class="col-md-3"><label class="form-label">Starts</label><input class="form-control" type="date" name="starts_on" value="{{ item.starts_on.isoformat() if item else '' }}" required></div><div class="col-md-3"><label class="form-label">Ends</label><input class="form-control" type="date" name="ends_on" value="{{ item.ends_on.isoformat() if item else '' }}" required></div>
+            {% elif resource == 'batches' %}
+                <div class="col-md-4"><label class="form-label">Course</label><select class="form-select" name="course_id" required>{% for value in courses %}<option value="{{ value.id }}" {% if item and item.course_id == value.id %}selected{% endif %}>{{ value.department.code }} — {{ value.code }}</option>{% endfor %}</select></div><div class="col-md-3"><label class="form-label">Academic year</label><select class="form-select" name="academic_year_id" required>{% for value in academic_years %}<option value="{{ value.id }}" {% if item and item.academic_year_id == value.id %}selected{% endif %}>{{ value.label }}</option>{% endfor %}</select></div><div class="col-md-3"><label class="form-label">Batch code</label><input class="form-control" name="code" value="{{ item.code if item else '' }}" required></div>
+            {% elif resource == 'sections' %}
+                <div class="col-md-6"><label class="form-label">Batch</label><select class="form-select" name="batch_id" required>{% for value in batches %}<option value="{{ value.id }}" {% if item and item.batch_id == value.id %}selected{% endif %}>{{ value.course.department.code }} — {{ value.course.code }} — {{ value.code }}</option>{% endfor %}</select></div><div class="col-md-3"><label class="form-label">Section code</label><input class="form-control" name="code" value="{{ item.code if item else '' }}" required></div>
+            {% elif resource == 'classrooms' %}
+                {% if can_manage_global %}<div class="col-md-3"><label class="form-label">Department (optional)</label><select class="form-select" name="department_id"><option value="">Institution-wide room</option>{% for value in departments %}<option value="{{ value.id }}" {% if item and item.department_id == value.id %}selected{% endif %}>{{ value.code }}</option>{% endfor %}</select></div>{% else %}<input type="hidden" name="department_id" value="{{ current_department_id }}">{% endif %}
+                <div class="col-md-3"><label class="form-label">Room code</label><input class="form-control" name="code" value="{{ item.code if item else '' }}" required></div><div class="col-md-3"><label class="form-label">Building</label><input class="form-control" name="building" value="{{ item.building if item else '' }}"></div><div class="col-md-2"><label class="form-label">Capacity</label><input class="form-control" type="number" min="1" name="capacity" value="{{ item.capacity if item and item.capacity else '' }}"></div>
+            {% elif resource == 'sessions' %}
+                <div class="col-md-3"><label class="form-label">Section</label><select class="form-select" name="section_id" required>{% for value in sections %}<option value="{{ value.id }}" {% if item and item.section_id == value.id %}selected{% endif %}>{{ value.batch.course.department.code }} — {{ value.batch.course.code }} / {{ value.code }}</option>{% endfor %}</select></div><div class="col-md-2"><label class="form-label">Semester</label><select class="form-select" name="semester_id" required>{% for value in semesters %}<option value="{{ value.id }}" {% if item and item.semester_id == value.id %}selected{% endif %}>{{ value.academic_year.label }} · {{ value.number }}</option>{% endfor %}</select></div><div class="col-md-3"><label class="form-label">Subject</label><select class="form-select" name="subject_id" required>{% for value in subjects %}<option value="{{ value.id }}" {% if item and item.subject_id == value.id %}selected{% endif %}>{{ value.subject_code }} — {{ value.subject_name }}</option>{% endfor %}</select></div>
+                <div class="col-md-3"><label class="form-label">Faculty (optional)</label><select class="form-select" name="faculty_id"><option value="">Unassigned</option>{% for value in faculty %}<option value="{{ value.id }}" {% if item and item.faculty_id == value.id %}selected{% endif %}>{{ value.name }}</option>{% endfor %}</select></div><div class="col-md-3"><label class="form-label">Classroom (optional)</label><select class="form-select" name="classroom_id"><option value="">Unassigned</option>{% for value in classrooms %}<option value="{{ value.id }}" {% if item and item.classroom_id == value.id %}selected{% endif %}>{{ value.code }}</option>{% endfor %}</select></div><div class="col-md-2"><label class="form-label">Weekday (Mon=0)</label><select class="form-select" name="weekday" required>{% for day, label in [(0,'Monday'),(1,'Tuesday'),(2,'Wednesday'),(3,'Thursday'),(4,'Friday'),(5,'Saturday'),(6,'Sunday')] %}<option value="{{ day }}" {% if item and item.weekday == day %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div><div class="col-md-2"><label class="form-label">Starts</label><input class="form-control" type="time" name="starts_at" value="{{ item.starts_at.strftime('%H:%M') if item else '' }}" required></div><div class="col-md-2"><label class="form-label">Ends</label><input class="form-control" type="time" name="ends_at" value="{{ item.ends_at.strftime('%H:%M') if item else '' }}" required></div>
+            {% endif %}
+            <div class="col-auto"><button class="btn btn-primary" type="submit">{{ 'Save changes' if item else 'Create' }}</button></div>
+        </form>
+        {% endmacro %}
+
+        {% set resources = [
+            ('departments','Departments'),('courses','Courses'),('years','Academic Years'),('semesters','Semesters'),
+            ('batches','Batches'),('sections','Sections'),('classrooms','Classrooms'),('sessions','Timetable Class Sessions')
+        ] %}
+        {% for resource, title in resources %}
+            {% if resource not in ['years','semesters'] or can_manage_global %}
+            <section class="card p-3 mt-4">
+                <h5>{{ title }}</h5>
+                {% if (resource != 'departments' or can_manage_global) and (resource not in ['years','semesters'] or can_manage_global) %}
+                    {{ resource_form(resource) }}
+                {% endif %}
+                {% if resource == 'departments' %}{% set items = departments %}
+                {% elif resource == 'courses' %}{% set items = courses %}
+                {% elif resource == 'years' %}{% set items = years %}
+                {% elif resource == 'semesters' %}{% set items = semesters %}
+                {% elif resource == 'batches' %}{% set items = batches %}
+                {% elif resource == 'sections' %}{% set items = sections %}
+                {% elif resource == 'classrooms' %}{% set items = classrooms %}
+                {% else %}{% set items = sessions %}{% endif %}
+                <div class="table-responsive mt-3"><table class="table table-striped align-middle"><thead><tr><th>Record</th><th>Details</th><th>Actions</th></tr></thead><tbody>
+                {% for item in items %}
+                    <tr><td>
+                        {% if resource == 'departments' %}{{ item.code }}{% elif resource == 'courses' %}{{ item.code }}{% elif resource == 'years' %}{{ item.label }}{% elif resource == 'semesters' %}{{ item.academic_year.label }} / {{ item.number }}{% elif resource == 'batches' %}{{ item.course.code }} / {{ item.code }}{% elif resource == 'sections' %}{{ item.batch.course.code }} / {{ item.code }}{% elif resource == 'classrooms' %}{{ item.code }}{% else %}{{ item.section.batch.course.code }} / {{ item.subject.subject_code }}{% endif %}
+                    </td><td>
+                        {% if resource == 'departments' %}{{ item.name }} · {{ 'Active' if item.is_active else 'Inactive' }}{% elif resource == 'courses' %}{{ item.name }} · {{ item.department.code }}{% elif resource == 'years' %}{{ item.starts_on }} – {{ item.ends_on }}{% elif resource == 'semesters' %}{{ item.starts_on }} – {{ item.ends_on }}{% elif resource == 'batches' %}{{ item.academic_year.label }}{% elif resource == 'sections' %}{{ item.batch.academic_year.label }}{% elif resource == 'classrooms' %}{{ item.building or 'Building not set' }}{% else %}{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][item.weekday] }} {{ item.starts_at.strftime('%H:%M') }}–{{ item.ends_at.strftime('%H:%M') }} · {{ item.faculty.name if item.faculty else 'Faculty unassigned' }} · {{ item.classroom.code if item.classroom else 'Room unassigned' }}{% endif %}
+                    </td><td>
+                        {% if resource != 'departments' or can_manage_global %}
+                        <details><summary>Edit</summary><div class="mt-2">{{ resource_form(resource, item) }}</div></details>
+                        <form method="post" action="{{ url_for('academic_admin.mutate_academic_resource', resource=resource, resource_id=item.id) }}" class="mt-2" onsubmit="return confirm('Delete this {{ title|lower }} record? Referenced records are preserved and will prevent deletion.')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="delete"><button class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                        {% else %}<span class="text-muted">Read only</span>{% endif %}
+                    </td></tr>
+                {% else %}<tr><td colspan="3" class="text-muted">No records yet.</td></tr>{% endfor %}
+                </tbody></table></div>
+            </section>
+            {% endif %}
+        {% endfor %}
+
+        {% if can_assign_student_sections %}
+        <section class="card p-3 mt-4">
+            <h5>Student section assignments</h5>
+            <p class="text-muted">Assign a student to an explicit academic section. The legacy department and section text is retained and does not grant Faculty access by itself.</p>
+            <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Student</th><th>Department</th><th>Legacy section</th><th>Current assignment / change</th></tr></thead><tbody>
+            {% for student in students %}
+                <tr><td>{{ student.register_number }} — {{ student.name }}</td><td>{{ student.department }}</td><td>{{ student.section }}</td><td>
+                    <form method="post" action="{{ url_for('academic_admin.assign_student_section', student_id=student.id) }}" class="row g-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="col-md-8"><select class="form-select" name="section_id"><option value="">Unassigned</option>{% for section in sections %}<option value="{{ section.id }}" {% if student.section_id == section.id %}selected{% endif %}>{{ section.batch.course.department.code }} — {{ section.batch.course.code }} / {{ section.code }} ({{ section.batch.code }})</option>{% endfor %}</select></div>
+                        <div class="col-md-4"><button class="btn btn-outline-primary" type="submit">Save assignment</button></div>
+                    </form>
+                    </td></tr>
+            {% else %}<tr><td colspan="4" class="text-muted">No students are available in this scope.</td></tr>{% endfor %}
+            </tbody></table></div>
+        </section>
+        {% endif %}
+
+        {% if can_assign_roles %}
+        <section class="card p-3 mt-4">
+            <h5>Assign department roles</h5><p class="text-muted">HOD and Department Admin assignments are restricted to Super Admin. Existing department text is retained; linking is additive.</p>
+            <div class="table-responsive"><table class="table table-striped"><thead><tr><th>Account</th><th>Current role</th><th>Assignment</th></tr></thead><tbody>
+            {% for user in users %}{% if user.role|upper not in ['SUPER_ADMIN','ADMIN'] %}
+                <tr><td>{{ user.username }}</td><td>{{ user.role }}</td><td><form method="post" action="{{ url_for('academic_admin.assign_user_department_role', user_id=user.id) }}" class="row g-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="col-md-4"><select class="form-select" name="role" required>{% for role in ['STUDENT','FACULTY','HOD','DEPARTMENT_ADMIN','MANAGEMENT'] %}<option value="{{ role }}" {% if user.role|upper == role %}selected{% endif %}>{{ role.replace('_',' ') }}</option>{% endfor %}</select></div>
+                    <div class="col-md-4"><select class="form-select" name="department_id"><option value="">No department</option>{% for department in departments %}<option value="{{ department.id }}" {% if user.department_id == department.id %}selected{% endif %}>{{ department.code }} — {{ department.name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-2"><button class="btn btn-outline-primary">Save role</button></div>
+                </form></td></tr>
+            {% endif %}{% endfor %}
+            </tbody></table></div>
+        </section>
+        {% endif %}
+    </main>
+</div>
+</body>
+</html>

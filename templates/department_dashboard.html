@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_hod %}HOD Dashboard{% else %}Department Admin Overview{% endif %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <h4>{{ department.code }} · {% if is_hod %}HOD{% else %}Department Admin{% endif %}</h4>
+        <nav>
+            {% if is_hod %}
+            <a class="active" href="{{ url_for('admin.hod_dashboard') }}">Department analytics</a>
+            <a href="{{ url_for('academic_admin.academic_dashboard') }}">Academic setup</a>
+            <a href="{{ url_for('attendance_workflows.correction_requests') }}">Correction requests</a>
+            <a href="{{ url_for('attendance_workflows.department_leave_requests') }}">Leave approvals</a>
+            {% else %}
+            <a class="active" href="{{ url_for('admin.department_dashboard') }}">Department overview</a>
+            <a href="{{ url_for('academic_admin.academic_dashboard') }}">Academic setup</a>
+            <a href="{{ url_for('api.export_attendance_file', file_format='xlsx') }}">Department attendance report</a>
+            {% endif %}
+            <a href="{{ url_for('notifications.notifications_page') }}">Notifications</a>
+            <a href="{{ url_for('announcements.announcements_page') }}">Announcements</a>
+            <a href="{{ url_for('auth.account_settings') }}">Account settings</a>
+            <a href="{{ url_for('notifications.notification_preferences_page') }}">Notification preferences</a>
+            <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-link text-start p-0" type="submit">Logout</button></form>
+        </nav>
+    </aside>
+    <main class="main-content">
+        <div class="topbar"><h3>{% if is_hod %}{{ department.name }} · Academic Dashboard{% else %}{{ department.name }} · Department Overview{% endif %}</h3></div>
+        <p class="text-muted">All displayed information is limited to {{ department.code }}. Attendance minimum: 75%; at risk is below 75%, and defaulter is below 65%. Risk bands: SAFE ≥90%; NORMAL ≥75%; WARNING ≥65%; HIGH RISK ≥50%; CRITICAL &lt;50%.</p>
+        <div class="row g-3 mt-2">
+            <div class="col-sm-6 col-xl-3"><div class="stat-card"><span>Students</span><h3>{{ student_count }}</h3></div></div>
+            <div class="col-sm-6 col-xl-3"><div class="stat-card"><span>Faculty</span><h3>{{ faculty_count }}</h3></div></div>
+            <div class="col-sm-6 col-xl-3"><div class="stat-card"><span>Courses · Sections</span><h3>{{ course_count }} · {{ section_count }}</h3></div></div>
+            <div class="col-sm-6 col-xl-3"><div class="stat-card"><span>Recorded attendance</span><h3>{{ attendance_count }}</h3></div></div>
+        </div>
+        <div class="card p-3 mt-4">
+            <h4 class="h5">Department attendance overview</h4>
+            <p class="mb-0">Average attendance across students with recorded attendance: <strong>{{ average_attendance }}%</strong></p>
+        </div>
+        {% if is_hod %}
+        <div class="row g-3 mt-2">
+            <div class="col-md-6"><div class="stat-card"><span>Pending leave requests</span><h3>{{ pending_leave_count }}</h3><a href="{{ url_for('attendance_workflows.department_leave_requests') }}">Review leave requests</a></div></div>
+            <div class="col-md-6"><div class="stat-card"><span>Pending correction requests</span><h3>{{ pending_correction_count }}</h3><a href="{{ url_for('attendance_workflows.correction_requests') }}">Review corrections</a></div></div>
+        </div>
+        <section class="card p-3 mt-4" aria-labelledby="subject-attendance-heading">
+            <h4 id="subject-attendance-heading" class="h5">Attendance by subject</h4>
+            <div class="table-responsive"><table class="table table-striped">
+                <caption class="visually-hidden">Department attendance aggregates by subject</caption>
+                <thead><tr><th scope="col">Subject</th><th scope="col">Present</th><th scope="col">Records</th><th scope="col">Attendance</th></tr></thead>
+                <tbody>{% for row in subject_stats %}<tr><td>{{ row.name }}</td><td>{{ row.present }}</td><td>{{ row.total }}</td><td>{{ row.percentage }}%</td></tr>{% else %}<tr><td colspan="4">No subject attendance records.</td></tr>{% endfor %}</tbody>
+            </table></div>
+        </section>
+        <div class="row g-3 mt-1">
+            <section class="col-lg-6" aria-labelledby="class-attendance-heading"><div class="card p-3 h-100">
+                <h4 id="class-attendance-heading" class="h5">Attendance by class</h4>
+                <div class="table-responsive"><table class="table table-striped"><caption class="visually-hidden">Attendance aggregates by course and batch</caption><thead><tr><th scope="col">Class</th><th scope="col">Records</th><th scope="col">Attendance</th></tr></thead>
+                <tbody>{% for row in class_stats %}<tr><td>{{ row.label }}</td><td>{{ row.total }}</td><td>{{ row.percentage }}%</td></tr>{% else %}<tr><td colspan="3">No class attendance records.</td></tr>{% endfor %}</tbody></table></div>
+            </div></section>
+            <section class="col-lg-6" aria-labelledby="section-attendance-heading"><div class="card p-3 h-100">
+                <h4 id="section-attendance-heading" class="h5">Attendance by section</h4>
+                <div class="table-responsive"><table class="table table-striped"><caption class="visually-hidden">Attendance aggregates by department section</caption><thead><tr><th scope="col">Class · Section</th><th scope="col">Records</th><th scope="col">Attendance</th></tr></thead>
+                <tbody>{% for row in section_stats %}<tr><td>{{ row.label }}</td><td>{{ row.total }}</td><td>{{ row.percentage }}%</td></tr>{% else %}<tr><td colspan="3">No section attendance records.</td></tr>{% endfor %}</tbody></table></div>
+            </div></section>
+        </div>
+        <section class="card p-3 mt-4" aria-labelledby="faculty-performance-heading">
+            <h4 id="faculty-performance-heading" class="h5">Faculty performance · assigned department sessions</h4>
+            <div class="table-responsive"><table class="table table-striped"><caption class="visually-hidden">Attendance recorded in explicitly assigned faculty class sessions</caption>
+                <thead><tr><th scope="col">Faculty</th><th scope="col">Assigned sessions</th><th scope="col">Records</th><th scope="col">Attendance</th></tr></thead>
+                <tbody>{% for row in faculty_stats %}<tr><td>{{ row.name }}</td><td>{{ row.sessions }}</td><td>{{ row.total }}</td><td>{{ row.percentage }}%</td></tr>{% else %}<tr><td colspan="4">No faculty profiles in this department.</td></tr>{% endfor %}</tbody>
+            </table></div>
+        </section>
+        <div class="row g-3 mt-1">
+            <section class="col-lg-6" aria-labelledby="at-risk-heading"><div class="card p-3 h-100">
+                <h4 id="at-risk-heading" class="h5">At-risk students <small class="text-muted">below 75%</small></h4>
+                <div class="table-responsive"><table class="table table-striped"><caption class="visually-hidden">Students in this department below the 75 percent attendance target</caption><thead><tr><th scope="col">Student</th><th scope="col">Attendance</th><th scope="col">Risk</th></tr></thead>
+                <tbody>{% for row in at_risk_students %}<tr><td>{{ row.student.name }}</td><td>{{ row.percentage }}%</td><td><span class="risk-pill {{ row.risk.lower().replace(' ', '-') }}">{{ row.risk }}</span></td></tr>{% else %}<tr><td colspan="3">No students are currently below 75%.</td></tr>{% endfor %}</tbody></table></div>
+            </div></section>
+            <section class="col-lg-6" aria-labelledby="defaulters-heading"><div class="card p-3 h-100">
+                <h4 id="defaulters-heading" class="h5">Defaulters <small class="text-muted">below 65%</small></h4>
+                <div class="table-responsive"><table class="table table-striped"><caption class="visually-hidden">Students in this department below 65 percent attendance</caption><thead><tr><th scope="col">Student</th><th scope="col">Attendance</th><th scope="col">Risk</th></tr></thead>
+                <tbody>{% for row in defaulter_students %}<tr><td>{{ row.student.name }}</td><td>{{ row.percentage }}%</td><td><span class="risk-pill {{ row.risk.lower().replace(' ', '-') }}">{{ row.risk }}</span></td></tr>{% else %}<tr><td colspan="3">No students are currently below 65%.</td></tr>{% endfor %}</tbody></table></div>
+            </div></section>
+        </div>
+        {% endif %}
+    </main>
+</div>
+</body>
+</html>

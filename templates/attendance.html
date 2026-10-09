@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container py-5">
+        <div class="card p-4">
+            <h3>Faculty Attendance Marking</h3>
+            <form method="GET">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="row g-3">
+                    <div class="col-md-3"><label>Department</label><input class="form-control" value="{{ faculty.department }}" readonly></div>
+                    <div class="col-md-3"><label class="form-label" for="subject-id">Assigned subject</label>
+                        <select class="form-select" id="subject-id" name="subject_id" required><option value="">Select subject</option>
+                            {% for subject in subjects %}<option value="{{ subject.id }}" {% if selected_subject_id == subject.id|string %}selected{% endif %}>{{ subject.subject_code }} — {{ subject.subject_name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3"><label class="form-label" for="session-id">Assigned class session</label>
+                    <select class="form-select" id="session-id" name="session_id" required><option value="">Select session</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}" {% if selected_session_id == session.id|string %}selected{% endif %}>{{ session.section.batch.course.department.code }} / {{ session.section.batch.course.code }} / {{ session.section.code }} · {{ session.subject.subject_code }} · weekday {{ session.weekday }} · {{ session.starts_at }}–{{ session.ends_at }}</option>
+                        {% endfor %}
+                    </select>
+                    </div>
+                    <div class="col-md-3"><label for="attendance-date">Date</label><input class="form-control" id="attendance-date" type="date" name="date" value="{{ selected_date }}" required></div>
+                </div>
+                <p class="text-muted mt-3 mb-0">Student roster is determined by this assigned session's section; legacy section text does not grant access.</p>
+                <button class="btn btn-primary mt-3" type="submit">Load Enrolled Students</button>
+            </form>
+            {% if students %}
+            <form method="POST" class="mt-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="date" value="{{ selected_date }}">
+                <input type="hidden" name="subject_id" value="{{ selected_subject_id }}">
+                <input type="hidden" name="session_id" value="{{ selected_session_id }}">
+                <div class="table-responsive"><table class="table">
+                    <thead><tr><th>Register Number</th><th>Student</th><th>Status</th></tr></thead>
+                    <tbody>{% for student in students %}<tr>
+                        <td>{{ student.register_number }}</td><td>{{ student.name }}</td>
+                        <td><select class="form-select" aria-label="Attendance status for {{ student.name }}" name="status_{{ student.id }}"><option value="">Choose status</option><option value="PRESENT">Present</option><option value="ABSENT">Absent</option><option value="LATE">Late</option><option value="EXCUSED">Excused</option><option value="OD">OD (legacy)</option><option value="LEAVE">Leave (legacy)</option></select></td>
+                    </tr>{% endfor %}</tbody>
+                </table></div>
+                <div class="mb-3"><label class="form-label" for="correction-reason">Reason for any overdue correction</label><textarea class="form-control" id="correction-reason" name="correction_reason" rows="2" maxlength="1000"></textarea></div>
+                <button class="btn btn-success" type="submit">Save Attendance</button>
+            </form>
+            {% elif selected_session_id and selected_subject_id and selected_date %}
+            <p class="alert alert-info mt-4">No students are explicitly assigned to this class section.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

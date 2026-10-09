@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <h4>Faculty</h4>
+            <nav>
+                <a href="{{ url_for('faculty.dashboard') }}" class="active">Dashboard</a>
+                <a href="{{ url_for('faculty.mark_attendance') }}">Mark Attendance</a>
+                <a href="{{ url_for('announcements.announcements_page') }}">Announcements</a>
+                <a href="{{ url_for('auth.account_settings') }}">Account settings</a>
+                <a href="{{ url_for('attendance_workflows.correction_requests') }}">Attendance corrections</a>
+                <a href="{{ url_for('attendance_workflows.department_leave_requests') }}">Leave requests</a>
+                <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-link text-start p-0" type="submit">Logout</button></form>
+            </nav>
+        </aside>
+        <main class="main-content">
+            <div class="topbar">
+                <h3>Faculty Dashboard</h3>
+                <div><a class="btn btn-outline-primary btn-sm me-2" href="{{ url_for('api.export_attendance') }}">Export attendance CSV</a><a class="btn btn-outline-primary btn-sm me-2" href="{{ url_for('api.export_attendance_file', file_format='xlsx') }}">XLSX</a><a class="btn btn-outline-primary btn-sm" href="{{ url_for('api.export_attendance_file', file_format='pdf') }}">PDF</a></div>
+            </div>
+            <p class="mt-3"><a href="{{ url_for('notifications.notifications_page') }}">Notifications</a> · <a href="{{ url_for('notifications.notification_preferences_page') }}">Notification preferences</a></p>
+            <div class="row g-4 mt-2">
+                <div class="col-md-4"><div class="stat-card"><span>Assigned Subjects</span><h3>{{ subjects|length }}</h3></div></div>
+                <div class="col-md-4"><div class="stat-card"><span>Department</span><h3>{{ faculty.department }}</h3></div></div>
+                <div class="col-md-4"><div class="stat-card"><span>Students</span><h3>{{ students|length }}</h3></div></div>
+            </div>
+            <section class="card p-3 mt-4" aria-labelledby="today-timetable-heading">
+                <h4 id="today-timetable-heading" class="h5">Today's timetable <small class="text-muted">{{ today.strftime('%A, %B %d') if today else '' }}</small></h4>
+                <div class="table-responsive"><table class="table table-striped"><caption class="visually-hidden">Today's explicitly assigned faculty classes</caption>
+                    <thead><tr><th scope="col">Time</th><th scope="col">Subject</th><th scope="col">Class</th><th scope="col">Section</th><th scope="col">Room</th></tr></thead>
+                    <tbody>{% for item in today_timetable %}<tr><td>{{ item.starts_at.strftime('%H:%M') }}–{{ item.ends_at.strftime('%H:%M') }}</td><td>{{ item.subject.subject_name }}</td><td>{{ item.section.batch.course.code }} · {{ item.section.batch.code }}</td><td>{{ item.section.code }}</td><td>{{ item.classroom.code if item.classroom else '—' }}</td></tr>{% else %}<tr><td colspan="5">No assigned classes are scheduled for today.</td></tr>{% endfor %}</tbody>
+                </table></div>
+            </section>
+            <section class="card p-3 mt-4" aria-labelledby="assigned-class-metrics-heading">
+                <h4 id="assigned-class-metrics-heading" class="h5">Attendance by assigned subject and section</h4>
+                <div class="table-responsive"><table class="table table-striped"><caption class="visually-hidden">Attendance metrics use only explicitly assigned class sessions and their enrolled students</caption>
+                    <thead><tr><th scope="col">Subject</th><th scope="col">Class</th><th scope="col">Section</th><th scope="col">Present</th><th scope="col">Records</th><th scope="col">Attendance</th></tr></thead>
+                    <tbody>{% for item in class_metrics %}<tr><td>{{ item.subject }}</td><td>{{ item.class_label }}</td><td>{{ item.section }}</td><td>{{ item.present }}</td><td>{{ item.total }}</td><td>{{ item.percentage }}%</td></tr>{% else %}<tr><td colspan="6">No attendance metrics are available for assigned sections.</td></tr>{% endfor %}</tbody>
+                </table></div>
+            </section>
+            <div class="card p-3 mt-4">
+                <h5>Students Below Minimum Attendance</h5>
+                <div class="table-responsive"><table class="table table-striped">
+                    <caption class="visually-hidden">Students from faculty-assigned sections below the attendance target</caption>
+                    <thead><tr><th scope="col">Name</th><th scope="col">Department</th><th scope="col">Attendance</th><th scope="col">Risk</th></tr></thead>
+                    <tbody>
+                        {% for item in stats if item.percentage < 75 %}
+                        <tr>
+                            <td>{{ item.student.name }}</td>
+                            <td>{{ item.student.department }}</td>
+                            <td>{{ item.percentage }}%</td>
+                            <td>{{ item.risk }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table></div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

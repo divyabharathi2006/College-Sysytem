@@ -1,0 +1,7 @@
+# Schema migration policy
+
+`20261008_01_schema_baseline` is an adoption baseline for both empty databases and existing installations that do not yet have Alembic revision tracking. Existing tables are left in place; existing account IDs and password hashes are retained, existing `students.department` text and attendance rows are preserved, and department associations are added as nullable foreign keys. Legacy `admin`, `faculty`, and `student` role strings are normalized in place to canonical role names.
+
+Before applying a migration to an institution's database, make an operator-managed, restorable backup. Apply with `flask --app app db upgrade`. Production application startup does not create or modify schema. Do not use `flask db stamp` to bypass the adoption migration. Future schema changes must be authored as revisions and applied through the same command.
+
+The initial adoption revision is intentionally irreversible because dropping its additions would discard department associations and changing a baseline underneath live data is unsafe.
